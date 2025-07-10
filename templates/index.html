@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classificador de Churn Bancário</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+            background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="%23e2e8f0" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+            opacity: 0.3;
+            z-index: -1;
+        }
+
+        .container {
+            background: #ffffff;
+            padding: 50px 40px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.04);
+            max-width: 600px;
+            width: 100%;
+            border: 1px solid #e2e8f0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #1eaf2f 0%, #4bf63b 50%, #63fa60 100%);
+        }
+
+        h1 {
+            text-align: center;
+            color: #0f172a;
+            margin-bottom: 35px;
+            font-size: 2.2em;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            position: relative;
+        }
+
+        h1::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 3px;
+            background: #3ef63b;
+            border-radius: 2px;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #374151;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 500;
+            color: #1f2937;
+            background: #ffffff;
+            transition: all 0.2s ease;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #44f63b;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.08);
+            background: #fafbfc;
+        }
+
+        input:hover, select:hover {
+            border-color: #9ca3af;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 20px;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        button {
+            width: 100%;
+            padding: 16px 24px;
+            background: linear-gradient(180deg, #51f63b 0%, #1dd842 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        button:hover {
+            background: linear-gradient(180deg, #85eb25 0%, #1eaf23 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+        }
+
+        button:hover::before {
+            left: 100%;
+        }
+
+        button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.25);
+        }
+
+        .result {
+            margin-top: 30px;
+            padding: 20px 24px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+            border: 1px solid;
+            position: relative;
+        }
+
+        .result::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            right: -1px;
+            bottom: -1px;
+            border-radius: 8px;
+            padding: 1px;
+            background: linear-gradient(45deg, currentColor, transparent);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask-composite: exclude;
+        }
+
+        .result.success {
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+            color: #15803d;
+            border-color: #86efac;
+        }
+
+        .result.error {
+            background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+            color: #dc2626;
+            border-color: #fca5a5;
+        }
+
+        .result.churn {
+            background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+            color: #dc2626;
+            border-color: #fca5a5;
+        }
+
+        .result.no-churn {
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+            color: #15803d;
+            border-color: #86efac;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .spinner {
+            border: 3px solid #e5e7eb;
+            border-top: 3px solid #2b874b;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .info-box {
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border: 1px solid #93fd97;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 25px;
+            font-size: 14px;
+            color: #2faf1e;
+            position: relative;
+        }
+
+        .info-box::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: #64f63b;
+            border-radius: 0 0 0 8px;
+        }
+
+        .info-box h3 {
+            margin-bottom: 12px;
+            color: #1eaf34;
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .info-box ul {
+            margin-left: 20px;
+        }
+
+        .info-box li {
+            margin-bottom: 6px;
+            line-height: 1.5;
+        }
+
+        /* Responsividade */
+        @media (max-width: 768px) {
+            .container {
+                padding: 30px 25px;
+            }
+            
+            .form-row {
+                flex-direction: column;
+                gap: 0;
+            }
+            
+            h1 {
+                font-size: 1.8em;
+            }
+        }
+
+        /* Animações de entrada */
+        .container {
+            animation: slideUp 0.6s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏦 Classificador de Churn Bancário</h1>
+        
+        <div class="info-box">
+            <h3>Informações sobre os campos:</h3>
+            <ul>
+                <li><strong>Credit Score:</strong> Entre 350 e 850</li>
+                <li><strong>Geography:</strong> France, Spain ou Germany</li>
+                <li><strong>Gender:</strong> Female ou Male</li>
+                <li><strong>Age:</strong> Entre 18 e 92 anos</li>
+                <li><strong>Balance:</strong> Entre 0 e 251.000</li>
+                <li><strong>Number of Products:</strong> Entre 1 e 4</li>
+                <li><strong>Is Active Member:</strong> 0 = Não, 1 = Sim</li>
+            </ul>
+        </div>
+
+        <form id="churnForm">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="creditScore">Credit Score (350-850):</label>
+                    <input type="number" id="creditScore" name="creditScore" min="350" max="850" required>
+                </div>
+                <div class="form-group">
+                    <label for="age">Age (18-92):</label>
+                    <input type="number" id="age" name="age" min="18" max="92" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="geography">Geography:</label>
+                    <select id="geography" name="geography" required>
+                        <option value="">Selecione...</option>
+                        <option value="France">France</option>
+                        <option value="Spain">Spain</option>
+                        <option value="Germany">Germany</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="gender">Gender:</label>
+                    <select id="gender" name="gender" required>
+                        <option value="">Selecione...</option>
+                        <option value="Female">Female</option>
+                        <option value="Male">Male</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="balance">Balance (0-251000):</label>
+                    <input type="number" id="balance" name="balance" min="0" max="251000" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="numProducts">Number of Products (1-4):</label>
+                    <input type="number" id="numProducts" name="numProducts" min="1" max="4" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="isActiveMember">Is Active Member:</label>
+                <select id="isActiveMember" name="isActiveMember" required>
+                    <option value="">Selecione...</option>
+                    <option value="0">0 - Não</option>
+                    <option value="1">1 - Sim</option>
+                </select>
+            </div>
+
+            <button type="submit">🔍 Classificar Cliente</button>
+        </form>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Processando...</p>
+        </div>
+
+        <div class="result" id="result">
+            <h3 id="resultTitle"></h3>
+            <p id="resultMessage"></p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('churnForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const loading = document.getElementById('loading');
+            const result = document.getElementById('result');
+            const resultTitle = document.getElementById('resultTitle');
+            const resultMessage = document.getElementById('resultMessage');
+            
+            // Mostra loading
+            loading.style.display = 'block';
+            result.style.display = 'none';
+            
+            // Coleta os dados do formulário
+            const formData = new FormData(this);
+            const data = {
+                CreditScore: parseInt(formData.get('creditScore')),
+                Geography: formData.get('geography'),
+                Gender: formData.get('gender'),
+                Age: parseInt(formData.get('age')),
+                Balance: parseFloat(formData.get('balance')),
+                NumOfProducts: parseInt(formData.get('numProducts')),
+                IsActiveMember: parseInt(formData.get('isActiveMember'))
+            };
+            
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const responseData = await response.json();
+                
+                loading.style.display = 'none';
+                result.style.display = 'block';
+                
+                if (response.ok) {
+                    if (responseData.prediction === 'yes') {
+                        result.className = 'result churn';
+                        resultTitle.textContent = '⚠️ Cliente fará CHURN';
+                        resultMessage.textContent = 'O modelo prediz que este cliente provavelmente sairá do banco.';
+                    } else {
+                        result.className = 'result no-churn';
+                        resultTitle.textContent = '✅ Cliente NÃO fará CHURN';
+                        resultMessage.textContent = 'O modelo prediz que este cliente provavelmente permanecerá no banco.';
+                    }
+                } else {
+                    result.className = 'result error';
+                    resultTitle.textContent = 'Erro na Classificação';
+                    resultMessage.textContent = responseData.error || 'Ocorreu um erro inesperado.';
+                }
+            } catch (error) {
+                loading.style.display = 'none';
+                result.style.display = 'block';
+                result.className = 'result error';
+                resultTitle.textContent = 'Erro de Conexão';
+                resultMessage.textContent = 'Não foi possível conectar ao servidor. Tente novamente.';
+            }
+        });
+    </script>
+</body>
+</html>
